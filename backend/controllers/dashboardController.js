@@ -44,56 +44,120 @@ const getDashboardStats = async (req, res) => {
         });
     }
 };
-
 const getRiskDistribution = async (req, res) => {
     try {
+        // Get all customers from MySQL
         const [customers] = await db.execute(
             "SELECT * FROM customers"
         );
 
-        let high = 0;
-        let medium = 0;
-        let low = 0;
-
-        for (const customer of customers) {
-
-            const customerData = { ...customer };
-
-            delete customerData.Churn;
-
-            const response = await axios.post(
-                "http://127.0.0.1:8000/predict",
-                customerData
-            );
-
-            const riskLevel = response.data.risk_level;
-
-            if (riskLevel === "High") {
-                high++;
-            } else if (riskLevel === "Medium") {
-                medium++;
-            } else if (riskLevel === "Low") {
-                low++;
-            }
+        if (customers.length === 0) {
+            return res.json({
+                high_risk: 0,
+                medium_risk: 0,
+                low_risk: 0
+            });
         }
 
+        // Prepare data for FastAPI
+        const customerData = customers.map(customer => {
+            const data = { ...customer };
+
+            // Churn is the actual result, so ML should not receive it
+            delete data.Churn;
+
+            return data;
+        });
+
+        // Send ALL customers in one request
+        const response = await axios.post(
+            "http://127.0.0.1:8000/predict-batch",
+            customerData
+        );
+
+        const predictions = response.data.predictions;
+
+        // Count risk levels
+        let highRisk = 0;
+        let mediumRisk = 0;
+        let lowRisk = 0;
+
+        predictions.forEach(customer => {
+
+            if (customer.risk_level === "High") {
+                highRisk++;
+            }
+            else if (customer.risk_level === "Medium") {
+                mediumRisk++;
+            }
+            else if (customer.risk_level === "Low") {
+                lowRisk++;
+            }
+
+        });
+
         res.json({
-            high_risk: high,
-            medium_risk: medium,
-            low_risk: low
+            total_customers: predictions.length,
+            high_risk: highRisk,
+            medium_risk: mediumRisk,
+            low_risk: lowRisk
         });
 
     } catch (error) {
-        console.error("Risk distribution error:", error.message);
+
+        console.error(
+            "Risk distribution error:",
+            error.response?.data || error.message
+        );
 
         res.status(500).json({
             message: "Failed to calculate risk distribution",
+            error: error.response?.data || error.message
+        });
+    }
+};
+const getSegmentDistribution = async (req, res) => {
+    try {
+        const [result] = await db.execute(`
+            SELECT
+                Customer_Segment AS segment,
+                COUNT(*) AS total,
+                SUM(Churn = 1) AS churned
+            FROM customers
+            GROUP BY Customer_Segment
+            ORDER BY total DESC
+        `);
+
+        const segments = result.map(row => ({
+            segment: row.segment,
+            total: Number(row.total),
+            churned: Number(row.churned),
+            churn_rate:
+                row.total > 0
+                    ? Number(
+                          ((row.churned / row.total) * 100).toFixed(2)
+                      )
+                    : 0
+        }));
+
+        res.json({
+            segments
+        });
+
+    } catch (error) {
+        console.error(
+            "Segment distribution error:",
+            error.message
+        );
+
+        res.status(500).json({
+            message: "Failed to fetch segment distribution",
             error: error.message
         });
     }
 };
-
 module.exports = {
     getDashboardStats,
-    getRiskDistribution
+    getRiskDistribution,
+    getSegmentDistribution
 };

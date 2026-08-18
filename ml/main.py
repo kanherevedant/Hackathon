@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
-from typing import List
+
 from predict import predict_customer
 import joblib
 from retention import (

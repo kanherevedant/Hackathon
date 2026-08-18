@@ -7,6 +7,7 @@ const customerRoutes = require("./routes/customerRoutes");
 const predictionRoutes = require("./routes/predictionRoutes");
 const customerPredictionRoutes = require("./routes/customerPredictionRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/predict", predictionRoutes);
 app.use("/api/customers", customerPredictionRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/auth", authRoutes);
 
 const PORT = process.env.PORT || 5000;
 

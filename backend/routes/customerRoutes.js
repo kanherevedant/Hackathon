@@ -1,13 +1,16 @@
 const express = require("express");
-
+const authenticateToken = require("../middleware/authMiddleware");
 const router = express.Router();
 
 const {
     getCustomers,
-    getCustomerById
+    getCustomerById,
+    getCustomerRisk
 } = require("../controllers/customerController");
 
-router.get("/", getCustomers);
+router.get("/", authenticateToken,getCustomers);
+
+router.get("/:id/risk", getCustomerRisk);
 
 router.get("/:id", getCustomerById);
 
